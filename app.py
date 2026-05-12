@@ -23,10 +23,8 @@ def get_driving_route(coord1, coord2):
     return None, None
 
 # 1. TETAPAN HALAMAN & UI/UX (Banner KKM)
-# Mengemaskini tajuk pada tab pelayar
 st.set_page_config(page_title="Taburan Anggota Farmasi Negeri Pahang", layout="wide")
 
-# Banner Utama dengan Tajuk Baharu
 st.markdown("""
     <div style='display: flex; align-items: center; background-color: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
         <img src='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Ministry_of_Health_Malaysia.svg/512px-Ministry_of_Health_Malaysia.svg.png' width='80' style='margin-right: 20px;'>
@@ -39,7 +37,6 @@ st.markdown("""
 
 # 2. MUAT TURUN DATA
 try:
-    # Sila pastikan nama fail CSV anda tepat
     df = pd.read_csv("Pahang_Healthcare_Facilities_Data_Updated.csv")
 except FileNotFoundError:
     st.error("⚠️ Fail data tidak dijumpai. Sila pastikan fail CSV telah dimuat naik ke GitHub.")
@@ -49,16 +46,12 @@ except FileNotFoundError:
 df['Pegawai_Farmasi'] = df['Pegawai_Farmasi'].fillna(0).astype(int)
 df['Penolong_Pegawai'] = df['Penolong_Pegawai'].fillna(0).astype(int)
 
-# Persediaan lajur Populasi & Jawatan (Data yang anda sedang kemas kini)
-if 'Populasi' not in df.columns: df['Populasi'] = 0
-if 'PF_Jawatan' not in df.columns: df['PF_Jawatan'] = df['Pegawai_Farmasi']
-if 'PPF_Jawatan' not in df.columns: df['PPF_Jawatan'] = df['Penolong_Pegawai']
-
+# Persediaan lajur Populasi (Jika ada)
+if 'Populasi' not in df.columns: 
+    df['Populasi'] = 0
 df['Populasi'] = pd.to_numeric(df['Populasi'], errors='coerce').fillna(0).astype(int)
-df['PF_Jawatan'] = pd.to_numeric(df['PF_Jawatan'], errors='coerce').fillna(0).astype(int)
-df['PPF_Jawatan'] = pd.to_numeric(df['PPF_Jawatan'], errors='coerce').fillna(0).astype(int)
 
-# 3. SIDEBAR
+# 3. SIDEBAR (Penapis & Routing)
 st.sidebar.markdown("### 🔍 Tapis Data")
 all_districts = sorted(df['District'].dropna().unique().tolist())
 selected_districts = st.sidebar.multiselect("Pilih Daerah:", all_districts, default=all_districts)
@@ -84,40 +77,20 @@ with st.sidebar.expander("🚗 Alat Kira Jarak Pemanduan", expanded=False):
         if distance_km is not None:
             st.success(f"**Jarak Pemanduan:** {distance_km:.2f} km")
         else:
-            st.error("Ralat laluan.")
+            st.error("Ralat mendapatkan laluan.")
 
-# 4. KAD KPI EKSEKUTIF
-st.markdown("### 📈 Ringkasan Eksekutif")
-kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-
-pf_shortage = filtered_df['PF_Jawatan'].sum() - filtered_df['Pegawai_Farmasi'].sum()
-ppf_shortage = filtered_df['PPF_Jawatan'].sum() - filtered_df['Penolong_Pegawai'].sum()
-
-kpi1.metric("🏥 Jumlah Fasiliti", len(filtered_df))
-kpi2.metric("👥 Populasi Terlibat", f"{filtered_df['Populasi'].sum():,}")
-kpi3.metric("👨‍⚕️ Pengisian PF", f"{filtered_df['Pegawai_Farmasi'].sum():,}", f"Kekosongan: {pf_shortage}", delta_color="inverse")
-kpi4.metric("💊 Pengisian PPF", f"{filtered_df['Penolong_Pegawai'].sum():,}", f"Kekosongan: {ppf_shortage}", delta_color="inverse")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# 5. PETA (Minimalist)
+# 4. PETA (Minimalist)
 m = folium.Map(location=[3.75, 102.75], zoom_start=8, min_zoom=7, tiles="CartoDB positron")
 
 for index, row in filtered_df.iterrows():
-    kosong_pf = row['PF_Jawatan'] - row['Pegawai_Farmasi']
-    status_pf = f"<span style='color:#e74c3c; font-weight:bold;'>({kosong_pf} Kosong)</span>" if kosong_pf > 0 else "<span style='color:#27ae60;'>(Penuh)</span>"
-    
-    kosong_ppf = row['PPF_Jawatan'] - row['Penolong_Pegawai']
-    status_ppf = f"<span style='color:#e74c3c; font-weight:bold;'>({kosong_ppf} Kosong)</span>" if kosong_ppf > 0 else "<span style='color:#27ae60;'>(Penuh)</span>"
-
     popup_html = f"""
-    <div style="width: 280px; font-family: Arial, sans-serif;">
+    <div style="width: 250px; font-family: Arial, sans-serif;">
         <h4 style="margin-top: 0; margin-bottom: 5px; color: #2C3E50;">{row['Name']}</h4>
         <p style="margin: 2px 0; font-size: 12px; color: gray;"><b>Daerah:</b> {row['District']}</p>
         <hr style="margin: 5px 0;">
         <p style="margin: 2px 0; color: #d35400;"><b>Populasi:</b> {row['Populasi']:,} orang</p>
-        <p style="margin: 4px 0;"><b>Pegawai Farmasi (Lulus/Isi):</b><br> {row['PF_Jawatan']} / {row['Pegawai_Farmasi']} {status_pf}</p>
-        <p style="margin: 4px 0;"><b>Penolong Pegawai (Lulus/Isi):</b><br> {row['PPF_Jawatan']} / {row['Penolong_Pegawai']} {status_ppf}</p>
+        <p style="margin: 4px 0;"><b>Pegawai Farmasi:</b> {row['Pegawai_Farmasi']}</p>
+        <p style="margin: 4px 0;"><b>Penolong Pegawai:</b> {row['Penolong_Pegawai']}</p>
     </div>
     """
     
@@ -126,7 +99,7 @@ for index, row in filtered_df.iterrows():
     
     folium.Marker(
         [row['Latitude'], row['Longitude']],
-        popup=folium.Popup(popup_html, max_width=320),
+        popup=folium.Popup(popup_html, max_width=300),
         tooltip=row['Name'],
         icon=folium.Icon(color=icon_color, icon="info-sign")
     ).add_to(m)
@@ -144,9 +117,9 @@ if not filtered_df.empty:
         m.fit_bounds([sw, ne])
 
 # Paparkan Peta
-st_folium(m, width=1000, height=500)
+st_folium(m, width=1000, height=550)
 
-# 6. JADUAL DATA & DOWNLOAD
+# 5. JADUAL DATA & BUTANG MUAT TURUN
 st.markdown("---")
 col_table, col_btn = st.columns([8, 2])
 
@@ -162,5 +135,5 @@ with col_btn:
         mime='text/csv',
     )
 
-clean_table = filtered_df[['Name', 'District', 'Populasi', 'PF_Jawatan', 'Pegawai_Farmasi', 'PPF_Jawatan', 'Penolong_Pegawai']]
+clean_table = filtered_df[['Name', 'District', 'Populasi', 'Pegawai_Farmasi', 'Penolong_Pegawai']]
 st.dataframe(clean_table, use_container_width=True)
